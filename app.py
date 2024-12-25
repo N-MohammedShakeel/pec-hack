@@ -1,4 +1,5 @@
-# flask app
+import base64
+import os
 from flask import Flask, request
 from flask_cors import CORS
 import json
@@ -9,12 +10,18 @@ from gspread_dataframe import get_as_dataframe, set_with_dataframe
 import datetime
 from hashlib import sha256
 
+# Decode and save credentials.json at runtime
+creds_base64 = os.environ.get('GOOGLE_CREDENTIALS_BASE64')
+if creds_base64:
+    with open('credentials.json', 'wb') as f:
+        f.write(base64.b64decode(creds_base64))
+        print("Google credentials saved successfully.")
+
 app = Flask(__name__)
 CORS(app)
 
 
 def check_in(team, members):
-    # check if teams is empty
     if not team:
         print("No team to check-in!")
         return 400
@@ -47,13 +54,11 @@ def check_in(team, members):
     now = datetime.datetime.now()
     timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
 
-    # check if team exists
     if not df["Team Code"].isin(team).any():
         print("Team does not exist!")
         return 400
 
     df.loc[df["Team Code"].isin(team), "Check-in"] = "Yes"
-    # check if timestamp exists
     if df.loc[df["Team Code"].isin(team), "Timestamp"].isnull().values.any():
         df.loc[df["Team Code"].isin(team), "Timestamp"] = timestamp
     else:
@@ -63,13 +68,10 @@ def check_in(team, members):
             + str(timestamp)
         )
 
-    # if TL in members
-
     for member in members:
         col_name = member + " Check-in"
         df.loc[df["Team Code"].isin(team), col_name] = "Yes"
 
-    # write back to google sheet
     set_with_dataframe(sh, df)
 
     print("Check-in successful!")
@@ -84,12 +86,10 @@ def team_details(team):
 
     df = get_as_dataframe(sh)
 
-    # check if team exists
     if not df["Team Code"].isin([team]).any():
         print("Team does not exist!")
         return {"status": "failure"}
 
-    # get the team details
     team_details = df.loc[df["Team Code"] == team]
 
     res = {
@@ -104,18 +104,15 @@ def team_details(team):
         "M2": str(team_details["M2"].values[0]),
         "M3": str(team_details["M3"].values[0]),
         "M4": str(team_details["M4"].values[0]),
-
         "Check-in": str(team_details["Check-in"].values[0]),
         "Arrival": str(team_details["Arrival Date"].values[0]),
         "Departure": str(team_details["Departure Date"].values[0]),
         "Accomodation": str(team_details["Accomodation"].values[0]),
-
         "TL Check-in": str(team_details["TL Check-in"].values[0]),
         "M1 Check-in": str(team_details["M1 Check-in"].values[0]),
         "M2 Check-in": str(team_details["M2 Check-in"].values[0]),
         "M3 Check-in": str(team_details["M3 Check-in"].values[0]),
         "M4 Check-in": str(team_details["M4 Check-in"].values[0]),
-
         "TL Phone": str(team_details["TL Phone Number"].values[0]),
         "TL Email": str(team_details["TL Email"].values[0]),
         "M1 Phone": str(team_details["M1 Phone Number"].values[0]),
@@ -126,14 +123,11 @@ def team_details(team):
         "M3 Email": str(team_details["M3 Email"].values[0]),
         "M4 Phone": str(team_details["M4 Phone Number"].values[0]),
         "M4 Email": str(team_details["M4 Email"].values[0]),
-
     }
 
     print("Team details retrieved!")
 
-    res = json.dumps(res)
-
-    return res
+    return json.dumps(res)
 
 
 @app.route("/", methods=["GET"])
@@ -143,9 +137,7 @@ def hello():
 
 @app.route("/checkin/<teamcode>", methods=["POST"])
 def check_in_api(teamcode):
-    # get the request body
     req = request.get_json()
-
     members = req["members"].split(",")
     print(members)
     status = check_in([teamcode], members)
@@ -158,30 +150,18 @@ def check_in_api(teamcode):
 @app.route("/teamdetails/<teamcode>", methods=["GET"])
 def team_details_api(teamcode):
     response = team_details(teamcode)
-
-    # add headers to json.dumps
-
-    # convert to json
     return response
+
 
 @app.route("/teamcode/<teamid>", methods=["GET"])
-
 def get_code(teamid):
     try:
-        # hash the team id using sha256
         hashed = sha256(teamid.encode()).hexdigest()
-        # get the first 6 characters of the hash
-        response = {
-            "teamcode": hashed[:7],
-            "status": "success"
-        }
+        response = {"teamcode": hashed[:7], "status": "success"}
     except:
-        response = {
-            "status": "failure"
-        }
+        response = {"status": "failure"}
     return response
 
 
-# run in debug mode
 if __name__ == "__main__":
     app.run(debug=True)
