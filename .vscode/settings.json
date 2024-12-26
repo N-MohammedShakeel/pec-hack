@@ -1,0 +1,9 @@
+{  
+"liveServer.settings.https":   
+{
+"enable": true, //set it true to enable the feature.  
+"cert": "/Users/laavesh/Developer/pechacks_qr/localhost+1.pem", //full path of the certificate  
+"key": "/Users/laavesh/Developer/pechacks_qr/localhost+1-key.pem", //full path of the private key  
+"passphrase": "12345" 
+}  
+}
