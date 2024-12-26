@@ -3,3 +3,5 @@
 
 *.pyc
 credentials.json
+.env
+credentials_base64.txt
